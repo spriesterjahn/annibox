@@ -10,17 +10,18 @@ VOLUME_STEP = 10
 VOLUME_DEFAULT = 100
 BOUNCE_TIME = 200
 
-class ButtonPin ( IntEnum ) :
+class Pin ( IntEnum ) :
     GREEN = 19
     RED = 24
     BLUE = 23
     YELLOW = 21
+    LED = 26
 
 class Button ( IntEnum ) :
-    PLAY = ButtonPin.GREEN
-    PAUSE = ButtonPin.YELLOW
-    VOL_UP = ButtonPin.RED
-    VOL_DOWN = ButtonPin.BLUE
+    PLAY = Pin.GREEN
+    PAUSE = Pin.YELLOW
+    VOL_UP = Pin.RED
+    VOL_DOWN = Pin.BLUE
 
 vlcInstance = vlc.Instance( "--aout alsa" )
 player = vlcInstance.media_player_new()
@@ -34,11 +35,15 @@ GPIO.setwarnings( False )
 # Use physical pin numbering
 GPIO.setmode( GPIO.BOARD )
 
+# enable the LED
+GPIO.setup( Pin.LED, GPIO.OUT )
+GPIO.output( Pin.LED, GPIO.HIGH )
+
 # set the pins to be an input pin and set initial value to be pulled low (off)
-GPIO.setup( Button.PLAY.value, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
-GPIO.setup( Button.PAUSE.value, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
-GPIO.setup( Button.VOL_UP.value, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
-GPIO.setup( Button.VOL_DOWN.value, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+GPIO.setup( Button.PLAY, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+GPIO.setup( Button.PAUSE, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+GPIO.setup( Button.VOL_UP, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+GPIO.setup( Button.VOL_DOWN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
 
 # add callback functions for each button press
 def play ( channel ) :
@@ -71,10 +76,11 @@ def volume_down ( channel ) :
         player.audio_set_volume( volume )
 
 # setup event on pin 10 rising edge
-GPIO.add_event_detect( Button.PLAY.value, GPIO.RISING, callback = play, bouncetime = BOUNCE_TIME )
-GPIO.add_event_detect( Button.PAUSE.value, GPIO.RISING, callback = pause, bouncetime = BOUNCE_TIME )
-GPIO.add_event_detect( Button.VOL_UP.value, GPIO.RISING, callback = volume_up, bouncetime = BOUNCE_TIME )
-GPIO.add_event_detect( Button.VOL_DOWN.value, GPIO.RISING, callback = volume_down, bouncetime = BOUNCE_TIME )
+GPIO.add_event_detect( Button.PLAY, GPIO.RISING, callback = play, bouncetime = BOUNCE_TIME )
+GPIO.add_event_detect( Button.PAUSE, GPIO.RISING, callback = pause, bouncetime = BOUNCE_TIME )
+GPIO.add_event_detect( Button.VOL_UP, GPIO.RISING, callback = volume_up, bouncetime = BOUNCE_TIME )
+GPIO.add_event_detect( Button.VOL_DOWN, GPIO.RISING, callback = volume_down, bouncetime = BOUNCE_TIME )
 
 message = input( "Press [Enter] to quit\n" )
+GPIO.output( Pin.LED, GPIO.LOW )
 GPIO.cleanup()
