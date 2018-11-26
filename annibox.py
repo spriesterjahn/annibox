@@ -3,7 +3,16 @@
 import RPi.GPIO as GPIO
 import time
 import vlc
+import sys
+import time
+import daemon
+import signal
+import lockfile
 from enum import IntEnum
+
+PID_FILE = '/home/pi/annibox/annibox.pid'
+STDOUT_FILE = '/home/pi/annibox/annibox.stdout.log'
+STDERR_FILE = '/home/pi/annibox/annibox.stderr.log'
 
 VOLUME_LIMIT = 200
 VOLUME_STEP = 10
@@ -75,12 +84,31 @@ def volume_down ( channel ) :
         print( "set volume " + str( volume ) )
         player.audio_set_volume( volume )
 
-# setup event on pin 10 rising edge
-GPIO.add_event_detect( Button.PLAY, GPIO.RISING, callback = play, bouncetime = BOUNCE_TIME )
-GPIO.add_event_detect( Button.PAUSE, GPIO.RISING, callback = pause, bouncetime = BOUNCE_TIME )
-GPIO.add_event_detect( Button.VOL_UP, GPIO.RISING, callback = volume_up, bouncetime = BOUNCE_TIME )
-GPIO.add_event_detect( Button.VOL_DOWN, GPIO.RISING, callback = volume_down, bouncetime = BOUNCE_TIME )
+def shutdown( signum, frame ) :
+    global player
+    player.stop()
+    GPIO.output( Pin.LED, GPIO.LOW )
+    GPIO.cleanup()
+    sys.exit( 0 )
 
-message = input( "Press [Enter] to quit\n" )
-GPIO.output( Pin.LED, GPIO.LOW )
-GPIO.cleanup()
+stdoutFile = open( STDOUT_FILE, 'w+' )
+stderrFile = open( STDERR_FILE, 'w+' )
+
+with daemon.DaemonContext(
+    working_directory = "/home/pi/annibox",
+    signal_map = {
+        signal.SIGTERM: shutdown,
+        signal.SIGTSTP: shutdown
+    },
+    pidfile = lockfile.FileLock( PID_FILE ),
+    stdout = stdoutFile,
+    stderr = stderrFile
+) :
+    # setup event on pin rising edge
+    GPIO.add_event_detect( Button.PLAY, GPIO.RISING, callback = play, bouncetime = BOUNCE_TIME )
+    GPIO.add_event_detect( Button.PAUSE, GPIO.RISING, callback = pause, bouncetime = BOUNCE_TIME )
+    GPIO.add_event_detect( Button.VOL_UP, GPIO.RISING, callback = volume_up, bouncetime = BOUNCE_TIME )
+    GPIO.add_event_detect( Button.VOL_DOWN, GPIO.RISING, callback = volume_down, bouncetime = BOUNCE_TIME )
+
+    while True :
+        time.sleep( 5 )
