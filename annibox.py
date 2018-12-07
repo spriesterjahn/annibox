@@ -8,11 +8,12 @@ import time
 import daemon
 import signal
 import lockfile
+import rfid as rfid
 from enum import IntEnum
 
 PID_FILE = '/home/pi/annibox/annibox.pid'
-STDOUT_FILE = '/home/pi/annibox/annibox.stdout.log'
-STDERR_FILE = '/home/pi/annibox/annibox.stderr.log'
+STDOUT_FILE = '/home/pi/annibox/annibox.log'
+STDERR_FILE = '/home/pi/annibox/annibox_err.log'
 
 VOLUME_LIMIT = 200
 VOLUME_STEP = 10
@@ -32,67 +33,86 @@ class Button ( IntEnum ) :
     VOL_UP = Pin.RED
     VOL_DOWN = Pin.BLUE
 
-vlcInstance = vlc.Instance( "--aout alsa" )
-player = vlcInstance.media_player_new()
-player.audio_output_device_set( "alsa", "hw0:0" )
-player.audio_set_volume( VOLUME_DEFAULT )
-volume = VOLUME_DEFAULT
+anniBox = None
 
-# ignore warnings for now
-GPIO.setwarnings( False )
+class AnniBox :
+    def __init__ ( self ) :
+        self.vlcInstance = vlc.Instance( "--aout alsa" )
+        self.player = self.vlcInstance.media_player_new()
+        self.player.audio_output_device_set( "alsa", "hw0:0" )
+        self.player.audio_set_volume( VOLUME_DEFAULT )
+        self.volume = VOLUME_DEFAULT
 
-# Use physical pin numbering
-GPIO.setmode( GPIO.BOARD )
+        # ignore warnings for now
+        GPIO.setwarnings( False )
 
-# enable the LED
-GPIO.setup( Pin.LED, GPIO.OUT )
-GPIO.output( Pin.LED, GPIO.HIGH )
+        # Use physical pin numbering
+        GPIO.setmode( GPIO.BOARD )
 
-# set the pins to be an input pin and set initial value to be pulled low (off)
-GPIO.setup( Button.PLAY, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
-GPIO.setup( Button.PAUSE, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
-GPIO.setup( Button.VOL_UP, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
-GPIO.setup( Button.VOL_DOWN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+        # enable the LED
+        GPIO.setup( Pin.LED, GPIO.OUT )
+        GPIO.output( Pin.LED, GPIO.HIGH )
 
-# add callback functions for each button press
+        # set the pins to be an input pin and set initial value to be pulled low (off)
+        GPIO.setup( Button.PLAY, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+        GPIO.setup( Button.PAUSE, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+        GPIO.setup( Button.VOL_UP, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+        GPIO.setup( Button.VOL_DOWN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN )
+
+        # setup event on pin rising edge
+        GPIO.add_event_detect( Button.PLAY, GPIO.RISING, callback = play, bouncetime = BOUNCE_TIME )
+        GPIO.add_event_detect( Button.PAUSE, GPIO.RISING, callback = pause, bouncetime = BOUNCE_TIME )
+        GPIO.add_event_detect( Button.VOL_UP, GPIO.RISING, callback = volume_up, bouncetime = BOUNCE_TIME )
+        GPIO.add_event_detect( Button.VOL_DOWN, GPIO.RISING, callback = volume_down, bouncetime = BOUNCE_TIME )
+
+    # add callback functions for each button press
+    def play ( self ) :
+        print( "play", flush = True )
+        sys.stdout.flush()
+        self.player.set_media( self.vlcInstance.media_new( "test.mp3" ) )
+        self.player.play()
+
+    def pause ( self ) :
+        print( "pause", flush = True )
+        self.player.pause()
+
+    def volume_up ( self ) :
+        if ( self.volume < VOLUME_LIMIT ) :
+            self.volume += VOLUME_STEP
+            print( "set volume " + str( self.volume ), flush = True )
+            self.player.audio_set_volume( self.volume )
+
+    def volume_down ( self ) :
+        if ( self.volume > 0 ) :
+            self.volume -= VOLUME_STEP
+            print( "set volume " + str( self.volume ), flush = True )
+            self.player.audio_set_volume( self.volume )
+
 def play ( channel ) :
-    global player
-    print( "play" )
-    player.set_media( vlcInstance.media_new( "test.mp3" ) )
-    player.play()
+    anniBox.play()
 
 def pause ( channel ) :
-    global player
-    print( "pause" )
-    player.pause()
+    anniBox.pause()
 
 def volume_up ( channel ) :
-    global volume
-    global player
-
-    if ( volume < VOLUME_LIMIT ) :
-        volume += VOLUME_STEP
-        print( "set volume " + str( volume ) )
-        player.audio_set_volume( volume )
+    anniBox.volume_up()
 
 def volume_down ( channel ) :
-    global volume
-    global player
+    anniBox.volume_down()
 
-    if ( volume > 0 ) :
-        volume -= VOLUME_STEP
-        print( "set volume " + str( volume ) )
-        player.audio_set_volume( volume )
+def rfid_trigger ( id ) :
+    print( 'id ' + id + ' triggered', flush = True )
 
 def shutdown( signum, frame ) :
-    global player
-    player.stop()
+    global anniBox
+    rfid.stop_rfid_loop()
+    anniBox.player.stop()
     GPIO.output( Pin.LED, GPIO.LOW )
     GPIO.cleanup()
     sys.exit( 0 )
 
-stdoutFile = open( STDOUT_FILE, 'w+' )
-stderrFile = open( STDERR_FILE, 'w+' )
+stdoutFile = open( STDOUT_FILE, 'w' )
+stderrFile = open( STDERR_FILE, 'w' )
 
 with daemon.DaemonContext(
     working_directory = "/home/pi/annibox",
@@ -104,11 +124,5 @@ with daemon.DaemonContext(
     stdout = stdoutFile,
     stderr = stderrFile
 ) :
-    # setup event on pin rising edge
-    GPIO.add_event_detect( Button.PLAY, GPIO.RISING, callback = play, bouncetime = BOUNCE_TIME )
-    GPIO.add_event_detect( Button.PAUSE, GPIO.RISING, callback = pause, bouncetime = BOUNCE_TIME )
-    GPIO.add_event_detect( Button.VOL_UP, GPIO.RISING, callback = volume_up, bouncetime = BOUNCE_TIME )
-    GPIO.add_event_detect( Button.VOL_DOWN, GPIO.RISING, callback = volume_down, bouncetime = BOUNCE_TIME )
-
-    while True :
-        time.sleep( 5 )
+    anniBox = AnniBox()
+    rfid.run_rfid_loop( rfid_trigger )
