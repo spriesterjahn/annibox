@@ -88,14 +88,23 @@ class AnniBox :
             self.player.get_media_player().audio_set_volume( self.volume )
 
     def play_album ( self, name ) :
+        if not os.path.isdir( 'media/' + name ) :
+            print( 'album ' + name + ' not found', flush = True )
+            return
+
         files = []
         for file in os.listdir( 'media/' + name  ) :
             files.append( 'media/' + name + '/' + file )
+
+        if not files :
+            print( 'album ' + name + ' is empty', flush = True )
+            return
+
         files.sort()
         media_list = self.vlc_instance.media_list_new( files )
         self.player.set_media_list( media_list )
-        print( 'play ' + self.player.get_media_player().get_media().get_mrl() , flush = True )
         self.player.play_item_at_index( 0 )
+        print( 'play ' + self.player.get_media_player().get_media().get_mrl() , flush = True )
 
 def play ( channel ) :
     anniBox.play()
