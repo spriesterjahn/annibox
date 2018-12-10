@@ -4,6 +4,7 @@ import RPi.GPIO as GPIO
 import time
 import vlc
 import sys
+import os
 import time
 import daemon
 import signal
@@ -37,10 +38,10 @@ anniBox = None
 
 class AnniBox :
     def __init__ ( self ) :
-        self.vlcInstance = vlc.Instance( "--aout alsa" )
-        self.player = self.vlcInstance.media_player_new()
-        self.player.audio_output_device_set( "alsa", "hw0:0" )
-        self.player.audio_set_volume( VOLUME_DEFAULT )
+        self.vlc_instance = vlc.Instance( '--aout alsa' )
+        self.player = self.vlc_instance.media_list_player_new()
+        self.player.get_media_player().audio_output_device_set( 'alsa', 'hw0:0' )
+        self.player.get_media_player().audio_set_volume( VOLUME_DEFAULT )
         self.volume = VOLUME_DEFAULT
 
         # ignore warnings for now
@@ -67,26 +68,34 @@ class AnniBox :
 
     # add callback functions for each button press
     def play ( self ) :
-        print( "play", flush = True )
-        sys.stdout.flush()
-        self.player.set_media( self.vlcInstance.media_new( "test.mp3" ) )
-        self.player.play()
+        self.player.next()
+        print( 'play ' + self.player.get_media_player().get_media().get_mrl() , flush = True )
 
     def pause ( self ) :
-        print( "pause", flush = True )
+        print( 'pause', flush = True )
         self.player.pause()
 
     def volume_up ( self ) :
         if ( self.volume < VOLUME_LIMIT ) :
             self.volume += VOLUME_STEP
-            print( "set volume " + str( self.volume ), flush = True )
-            self.player.audio_set_volume( self.volume )
+            print( 'set volume ' + str( self.volume ), flush = True )
+            self.player.get_media_player().audio_set_volume( self.volume )
 
     def volume_down ( self ) :
         if ( self.volume > 0 ) :
             self.volume -= VOLUME_STEP
-            print( "set volume " + str( self.volume ), flush = True )
-            self.player.audio_set_volume( self.volume )
+            print( 'set volume ' + str( self.volume ), flush = True )
+            self.player.get_media_player().audio_set_volume( self.volume )
+
+    def play_album ( self, name ) :
+        files = []
+        for file in os.listdir( 'media/' + name  ) :
+            files.append( 'media/' + name + '/' + file )
+        files.sort()
+        media_list = self.vlc_instance.media_list_new( files )
+        self.player.set_media_list( media_list )
+        print( 'play ' + self.player.get_media_player().get_media().get_mrl() , flush = True )
+        self.player.play_item_at_index( 0 )
 
 def play ( channel ) :
     anniBox.play()
@@ -102,6 +111,7 @@ def volume_down ( channel ) :
 
 def rfid_trigger ( id ) :
     print( 'id ' + id + ' triggered', flush = True )
+    anniBox.play_album( id )
 
 def shutdown( signum, frame ) :
     global anniBox
@@ -115,7 +125,7 @@ stdoutFile = open( STDOUT_FILE, 'w' )
 stderrFile = open( STDERR_FILE, 'w' )
 
 with daemon.DaemonContext(
-    working_directory = "/home/pi/annibox",
+    working_directory = '/home/pi/annibox',
     signal_map = {
         signal.SIGTERM: shutdown,
         signal.SIGTSTP: shutdown
