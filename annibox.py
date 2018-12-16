@@ -10,6 +10,7 @@ import daemon
 import signal
 import lockfile
 import rfid as rfid
+from shutdown_timer import ShutdownTimer
 from enum import IntEnum
 
 PID_FILE = '/home/pi/annibox/annibox.pid'
@@ -34,7 +35,8 @@ class Button ( IntEnum ) :
     VOL_UP = Pin.RED
     VOL_DOWN = Pin.BLUE
 
-anniBox = None
+anni_box = None
+shutdown_timer = None
 
 class AnniBox :
     def __init__ ( self ) :
@@ -107,25 +109,32 @@ class AnniBox :
         print( 'play ' + self.player.get_media_player().get_media().get_mrl() , flush = True )
 
 def play ( channel ) :
-    anniBox.play()
+    anni_box.play()
 
 def pause ( channel ) :
-    anniBox.pause()
+    anni_box.pause()
 
 def volume_up ( channel ) :
-    anniBox.volume_up()
+    anni_box.volume_up()
 
 def volume_down ( channel ) :
-    anniBox.volume_down()
+    anni_box.volume_down()
 
 def rfid_trigger ( id ) :
     print( 'id ' + id + ' triggered', flush = True )
-    anniBox.play_album( id )
+    anni_box.play_album( id )
+
+def activity_check () :
+    is_playing = anni_box.player.is_playing()
+    # print( 'activity check: ' + str( is_playing ) ,flush = True )
+    return is_playing
 
 def shutdown( signum, frame ) :
-    global anniBox
+    global anni_box
+    global shutdown_timer
+    shutdown_timer.stop()
     rfid.stop_rfid_loop()
-    anniBox.player.stop()
+    anni_box.player.stop()
     GPIO.output( Pin.LED, GPIO.LOW )
     GPIO.cleanup()
     sys.exit( 0 )
@@ -143,5 +152,7 @@ with daemon.DaemonContext(
     stdout = stdoutFile,
     stderr = stderrFile
 ) :
-    anniBox = AnniBox()
+    anni_box = AnniBox()
+    shutdown_timer = ShutdownTimer()
+    shutdown_timer.start( activity_check )
     rfid.run_rfid_loop( rfid_trigger )
