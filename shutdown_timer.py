@@ -4,7 +4,7 @@ import os
 
 class ShutdownTimer :
     # the default timeout in minutes
-    DEFAULT_TIMEOUT = 5.0
+    DEFAULT_TIMEOUT = 10.0
 
     # used internally to store the next timeout value
     timeout = time.time() + DEFAULT_TIMEOUT * 60.0
