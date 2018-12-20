@@ -6,16 +6,14 @@ import sys
 import os
 import time
 import daemon
+import signal
 import logging
 import logging.handlers
-import signal
-import lockfile
 from rfid import RfidReader
 from shutdown_timer import ShutdownTimer
 from enum import IntEnum
 from multiprocessing import Lock
 
-PID_FILE = '/home/pi/annibox/annibox.pid'
 LOG_FILE = '/home/pi/annibox/annibox.log'
 STDOUT_FILE = '/home/pi/annibox/stdout.log'
 STDERR_FILE = '/home/pi/annibox/stderr.log'
@@ -108,6 +106,7 @@ class AnniBox :
             return
 
         files.sort()
+        logging.info( 'set play list %s', files )
         media_list = self.vlc_instance.media_list_new( files )
         self.player.set_media_list( media_list )
         self.player.play_item_at_index( 0 )
@@ -154,7 +153,6 @@ with daemon.DaemonContext(
         signal.SIGTERM: shutdown,
         signal.SIGTSTP: shutdown
     },
-    pidfile = lockfile.FileLock( PID_FILE ),
     stdout = stdoutFile,
     stderr = stderrFile
 ) :
