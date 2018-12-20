@@ -1,13 +1,14 @@
 import threading
 import time
 import os
+import logging
 
 class ShutdownTimer :
     # the default timeout in minutes
     DEFAULT_TIMEOUT = 10.0
 
     # used internally to store the next timeout value
-    timeout = time.time() + DEFAULT_TIMEOUT * 60.0
+    timeout = time.monotonic() + DEFAULT_TIMEOUT * 60.0
 
     # the thread that is checking if the timeout is reached
     thread = None
@@ -21,15 +22,16 @@ class ShutdownTimer :
 
     # push the imminent shutdown back to given number of minutes from now
     def push_timeout ( self, minutes = DEFAULT_TIMEOUT ) :
-        self.timeout = time.time() + minutes * 60.0
+        self.timeout = time.monotonic() + minutes * 60.0
 
     # internal thread that checks if the timeout is reached once each second
     def __check_shutdown ( self ) :
+        logging.info( 'shutdown timer started' )
         CHECK_INTERVAL = 5.0 # seconds
-        next_check = time.time() + CHECK_INTERVAL
+        next_check = time.monotonic() + CHECK_INTERVAL
 
         while self.running :
-            now = time.time()
+            now = time.monotonic()
 
             if now < next_check :
                 time.sleep( 0.1 ) # seconds
@@ -41,9 +43,11 @@ class ShutdownTimer :
                 self.push_timeout()
             else:
                 if now > self.timeout :
-                    print( 'shutdown timeout reached', flush = True )
+                    logging.info( 'shutdown timeout reached' )
                     os.system( 'sudo shutdown -h now' )
                     self.running = False
+
+        logging.info( 'shutdown timer stopped' )
 
     # start the timer
     def start ( self, activity_check ) :
@@ -52,7 +56,6 @@ class ShutdownTimer :
         self.activity_check = activity_check
         self.push_timeout()
         self.thread.start()
-        print( 'shutdown timer started', flush = True )
 
     # stop the timer and wait until it is stopped
     def stop ( self ) :
@@ -64,10 +67,11 @@ class ShutdownTimer :
         self.thread.join()
 
 def __dummy_activity_check () :
-    print( 'dummy activity check', flush = True )
+    logging.info( 'dummy activity check' )
     return False
 
 if __name__ == '__main__' :
+    logging.root.setLevel( logging.INFO )
     st = ShutdownTimer()
     st.start( __dummy_activity_check )
     st.join()
