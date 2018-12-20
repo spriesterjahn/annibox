@@ -3,30 +3,35 @@ import evdev
 import logging
 import threading
 
-def stop_rfid_loop () :
-    global running
-    running = False
-
 def print_callback ( id ) :
     logging.info( id )
 
 class RfidReader :
+    # set to true when the reader thread starts; if set to false, the reader will stop
     running = False
+
+    # the thread that is reading characters from the RFID reader
     thread = None
+
+    # the callback that is called, when an ID has been read
     callback = None
 
+    # stop the reader and wait until it is stopped
     def stop ( self ) :
         self.running = False
 
         if self.thread :
             self.thread.join()
 
+    # start the reader
+    # callback will be called with ID as argument, when an ID has been read
     def start ( self, callback ) :
         self.thread = threading.Thread( target = self.__loop )
         self.running = True
         self.callback = callback
         self.thread.start()
 
+    # wait until the reader has been stopped
     def join ( self ) :
         if self.thread :
             self.thread.join()

@@ -37,6 +37,7 @@ class ShutdownTimer :
                 time.sleep( 0.1 ) # seconds
                 continue
 
+            logging.debug( 'shutdown in %f minutes', ( self.timeout - now ) / 60.0 )
             next_check = now + CHECK_INTERVAL
 
             if self.activity_check() == True :
