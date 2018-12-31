@@ -18,7 +18,7 @@ LOG_FILE = '/home/pi/annibox/annibox.log'
 STDOUT_FILE = '/home/pi/annibox/stdout.log'
 STDERR_FILE = '/home/pi/annibox/stderr.log'
 
-VOLUME_LIMIT = 200
+VOLUME_LIMIT = 120
 VOLUME_STEP = 10
 VOLUME_DEFAULT = 60
 BOUNCE_TIME = 200
