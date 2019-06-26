@@ -20,7 +20,7 @@ STDERR_FILE = '/home/pi/annibox/stderr.log'
 
 VOLUME_LIMIT = 120
 VOLUME_STEP = 10
-VOLUME_DEFAULT = 60
+VOLUME_DEFAULT = 50
 BOUNCE_TIME = 200
 
 class Pin ( IntEnum ) :
